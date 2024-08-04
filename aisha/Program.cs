@@ -19,6 +19,7 @@ public class Program
         if (args.Length == 0)
         {
             Console.WriteLine("Usage: aisha <natural language command>");
+            Console.WriteLine("       aisha -dos <natural language command>");
             Console.WriteLine("       aisha config");
             return;
         }
@@ -35,17 +36,25 @@ public class Program
             Console.WriteLine("API key not configured. Please run 'aisha config' to set up your API key.");
             return;
         }
-        string commandType = IsRunningInPowerShell() ? "PowerShell" : "DOS";
-        //Console.WriteLine(IsRunningInPowerShell());
-        string userInput = string.Join(" ", args);
+
+        bool isDos = false;
+        List<string> commandArgs = new List<string>(args);
+        if (commandArgs[0].ToLower() == "-dos")
+        {
+            isDos = true;
+            commandArgs.RemoveAt(0);
+        }
+
+        string commandType = isDos ? "DOS" : "PowerShell";
+        string userInput = string.Join(" ", commandArgs);
         string prompt = $"Convert the following natural language command to a {commandType} command: '{userInput}'. Please provide only the {commandType} command without any explanation.";
 
         try
         {
-            string powershellCommand = await GetPowerShellCommandAsync(prompt, apiKey);
+            string command = await GetCommandAsync(prompt, apiKey);
             Console.WriteLine($"{commandType} command:");
-            Console.WriteLine(powershellCommand);
-            CopyToClipboard(powershellCommand);
+            Console.WriteLine(command);
+            CopyToClipboard(command);
             Console.WriteLine("Command copied to clipboard.");
         }
         catch (Exception ex)
@@ -146,7 +155,7 @@ public class Program
         }
     }
 
-    private static async Task<string> GetPowerShellCommandAsync(string prompt, string apiKey)
+    private static async Task<string> GetCommandAsync(string prompt, string apiKey)
     {
         using (var client = new HttpClient())
         {
