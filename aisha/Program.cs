@@ -4,7 +4,9 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Net.Http;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
+using System.Windows.Forms;
 
 namespace aisha;
 
@@ -46,6 +48,8 @@ public class Program
             string powershellCommand = await GetPowerShellCommandAsync(prompt, apiKey);
             Console.WriteLine("PowerShell command:");
             Console.WriteLine(powershellCommand);
+            CopyToClipboard(powershellCommand);
+            Console.WriteLine("Command copied to clipboard.");
         }
         catch (Exception ex)
         {
@@ -166,4 +170,12 @@ public class Program
             return jsonResponse.GetProperty("content")[0].GetProperty("text").GetString().Trim();
         }
     }
+    private static void CopyToClipboard(string text)
+    {
+        Thread thread = new Thread(() => Clipboard.SetText(text));
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+    }
+    
 }
