@@ -1,12 +1,8 @@
-﻿using System;
-using System.IO;
-using System.Security.Cryptography;
+﻿using System.Security.Cryptography;
 using System.Text;
-using System.Net.Http;
 using System.Text.Json;
-using System.Threading;
-using System.Threading.Tasks;
-using System.Windows.Forms;
+// using System.Windows.Forms;
+using TextCopy;
 
 namespace aisha;
 
@@ -33,20 +29,21 @@ public class Program
             return;
         }
 
-        string apiKey = GetApiKey();
+        string? apiKey = GetApiKey();
         if (string.IsNullOrEmpty(apiKey))
         {
             Console.WriteLine("API key not configured. Please run 'aisha config' to set up your API key.");
             return;
         }
-
+        string commandType = IsRunningInPowerShell() ? "PowerShell" : "DOS";
+        //Console.WriteLine(IsRunningInPowerShell());
         string userInput = string.Join(" ", args);
-        string prompt = $"Convert the following natural language command to a PowerShell command: '{userInput}'. Please provide only the PowerShell command without any explanation.";
+        string prompt = $"Convert the following natural language command to a {commandType} command: '{userInput}'. Please provide only the {commandType} command without any explanation.";
 
         try
         {
             string powershellCommand = await GetPowerShellCommandAsync(prompt, apiKey);
-            Console.WriteLine("PowerShell command:");
+            Console.WriteLine($"{commandType} command:");
             Console.WriteLine(powershellCommand);
             CopyToClipboard(powershellCommand);
             Console.WriteLine("Command copied to clipboard.");
@@ -60,11 +57,21 @@ public class Program
     private static void ConfigureApiKey()
     {
         Console.Write("Enter your Claude API key: ");
-        string apiKey = Console.ReadLine();
-
+        string? apiKey = Console.ReadLine();
+        if (string.IsNullOrEmpty(apiKey))
+        {
+            Console.WriteLine("API key cannot be empty.");
+            return;
+        }
         try
         {
-            string directoryPath = Path.GetDirectoryName(CONFIG_FILE);
+            string? directoryPath = Path.GetDirectoryName(CONFIG_FILE);
+            if (directoryPath == null)
+            {
+                Console.WriteLine("Error saving API key, invalid directory path:'" + directoryPath + "'.");
+                return;
+            }
+            
             if (!Directory.Exists(directoryPath))
             {
                 Directory.CreateDirectory(directoryPath);
@@ -79,7 +86,7 @@ public class Program
         }
     }
 
-    private static string GetApiKey()
+    private static string? GetApiKey()
     {
         try
         {
@@ -87,6 +94,9 @@ public class Program
             {
                 string encryptedKey = File.ReadAllText(CONFIG_FILE);
                 return DecryptString(encryptedKey);
+            } else {
+                Console.WriteLine("API key not configured. Please run 'aisha config' to set up your API key.");
+                return null;
             }
         }
         catch (Exception ex)
@@ -167,15 +177,18 @@ public class Program
             var responseBody = await response.Content.ReadAsStringAsync();
             var jsonResponse = JsonSerializer.Deserialize<JsonElement>(responseBody);
 
-            return jsonResponse.GetProperty("content")[0].GetProperty("text").GetString().Trim();
+            return jsonResponse.GetProperty("content")[0].GetProperty("text").GetString()!.Trim();
         }
     }
+    private static bool IsRunningInPowerShell()
+    {
+        return !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("PSExecutionPolicyPreference"));
+        
+    }
+    
     private static void CopyToClipboard(string text)
     {
-        Thread thread = new Thread(() => Clipboard.SetText(text));
-        thread.SetApartmentState(ApartmentState.STA);
-        thread.Start();
-        thread.Join();
+        ClipboardService.SetText(text);
     }
     
 }
